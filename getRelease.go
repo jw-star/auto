@@ -9,13 +9,31 @@ import (
     "io/ioutil"
     "strings"
     "flag"
+    "strconv"
 )
 	var repo = flag.String("r", "", "仓库名  /2dust/v2rayN/")
-	var localPath = flag.String("p", "", "仓库名  /www/wwwroot/download.gojw.xyz/")
+	var localPath = flag.String("p", "保存路径", "  /www/wwwroot/download.gojw.xyz/")
+	var indexs = flag.String("n", "0", "默认0，releases中第几个链接序号，从0开始，如下载第1个和第6个 0,5  ")
+	var remvStrs = flag.String("remove", "", "删除文件关键词 如 clash  ")
 func main() {
      flag.Parse()
 	// 自动文件下载，比如自动下载图片、压缩包
 	var rep=*repo
+	var localPathstr=*localPath
+	//先删除特殊关键字文件 v2rayNG
+	files, _ := ioutil.ReadDir(localPathstr)
+	var remvStr =[...]string{*remvStrs}
+	
+    for _, f := range files {
+         for _,r := range remvStr {
+              if  strings.Contains(f.Name(),r) {
+                   os.Remove(localPathstr+f.Name())
+              }
+         }
+    }
+
+	
+	
     r, err := http.Get("https://api.github.com/repos"+rep+"releases/latest")
 	if err != nil {
 		panic(err)
@@ -25,12 +43,18 @@ func main() {
 	
 	var xxm mybody
 	err = json.Unmarshal(body, &xxm)
-	
-	url := xxm.Assets[0].BrowserDownloadURL
-	filenameArr := strings.Split(url,"/")
-    filename := filenameArr[len(filenameArr)-1]
- 	var localPathstr=*localPath
- 	DownloadFileProgress(url,localPathstr+filename)
+    var indexs=*indexs
+    indexArr :=	strings.Split(indexs,",")
+	for _,i := range indexArr {
+	    //字符串转int
+	   	i,_ := strconv.Atoi(i)
+    	url := xxm.Assets[i].BrowserDownloadURL
+    	filenameArr := strings.Split(url,"/")
+        filename := filenameArr[len(filenameArr)-1]
+     	fmt.Println("正在下载---------"+filename)
+         DownloadFileProgress(url,localPathstr+filename)
+	}
+
 }
 
 
@@ -97,3 +121,5 @@ type mybody struct {
 type Assets struct {
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
+
+
