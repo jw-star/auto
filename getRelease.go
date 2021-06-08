@@ -11,48 +11,62 @@ import (
     "flag"
     "strconv"
 )
-	var repo = flag.String("r", "", "仓库名  /2dust/v2rayN/")
-	var localPath = flag.String("p", "保存路径", "  /www/wwwroot/download.gojw.xyz/")
-	var indexs = flag.String("n", "0", "默认0，releases中第几个链接序号，从0开始，如下载第1个和第6个 0,5  ")
-	var remvStrs = flag.String("remove", "", "删除文件关键词 如 clash  ")
+var (
+         repo        string
+         localPath   string
+         indexs      string
+         remvStrs    ArrayValue
+         newName     string
+         filename string
+         xxm mybody
+        )   
+
 func main() {
-     flag.Parse()
+ 
+    flag.StringVar(&repo, "r", "", "仓库名  /2dust/v2rayN/")
+    flag.StringVar(&localPath, "p", "", "保存路径  /www/wwwroot/download.gojw.xyz/")
+    flag.StringVar(&indexs, "n", "0", "releases中第几个链接序号，默认0，从0开始，如下载第1个和第6个 0,5 ")
+    flag.Var(&remvStrs, "remove", "删除文件关键词 逗号分隔 如 clash,v2rayNG  ")
+    flag.StringVar(&newName, "name", "", "重命名 名字 ,默认为空，原文件名")    
+    flag.Parse()
 	// 自动文件下载，比如自动下载图片、压缩包
-	var rep=*repo
-	var localPathstr=*localPath
+
 	//先删除特殊关键字文件 v2rayNG
-	files, _ := ioutil.ReadDir(localPathstr)
-	var remvStr =[...]string{*remvStrs}
-	
+	files, _ := ioutil.ReadDir(localPath)
+	 
     for _, f := range files {
-         for _,r := range remvStr {
+         for _,r := range remvStrs {
               if  r!="" && strings.Contains(f.Name(),r) {
-                   os.Remove(localPathstr+f.Name())
+                   fmt.Println("删除关键词"+r+"文件")
+                   os.Remove(localPath+f.Name())
               }
          }
     }
 
 	
 	
-    r, err := http.Get("https://api.github.com/repos"+rep+"releases/latest")
+    r, err := http.Get("https://api.github.com/repos"+repo+"releases/latest")
 	if err != nil {
 		panic(err)
 	}
 	defer func() {_ = r.Body.Close()}()
 	body, _ := ioutil.ReadAll(r.Body)
 	
-	var xxm mybody
 	err = json.Unmarshal(body, &xxm)
-    var indexs=*indexs
     indexArr :=	strings.Split(indexs,",")
+
 	for _,i := range indexArr {
 	    //字符串转int
 	   	i,_ := strconv.Atoi(i)
     	url := xxm.Assets[i].BrowserDownloadURL
-    	filenameArr := strings.Split(url,"/")
-        filename := filenameArr[len(filenameArr)-1]
+    	if newName != ""{
+    	    filename = newName
+    	}else {
+    	    filename =xxm.Assets[i].Name
+    	}
+        
      	fmt.Println("正在下载---------"+filename)
-         DownloadFileProgress(url,localPathstr+filename)
+        DownloadFileProgress(url,localPath+filename)
 	}
 
 }
@@ -112,6 +126,14 @@ func DownloadFileProgress(url, filename string) {
 	_, _ = io.Copy(f, reader)
 }
 
+// 重写 flag的 Set  String接口 
+func (a *ArrayValue) Set(s string) error {
+    *a = strings.Split(s, ",")
+    return nil
+}
+func (s *ArrayValue) String() string {
+    return fmt.Sprintf("%v", *s)
+}
 
 type mybody struct {
 	Assets []Assets `json:"assets"`
@@ -120,6 +142,10 @@ type mybody struct {
 
 type Assets struct {
 	BrowserDownloadURL string `json:"browser_download_url"`
+	Name string `json:"name"`
 }
+
+// 自定义类型实现命令行接收数组参数
+type ArrayValue []string
 
 
